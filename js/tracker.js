@@ -15,12 +15,6 @@ const Tracker = {
     init() {
         this.currentDate = this.getTodayDate();
 
-        // Ensure nav buttons have NO JS onclick handlers (HTML inline handles it)
-        const prevBtn = document.getElementById('prevDay');
-        const nextBtn = document.getElementById('nextDay');
-        if (prevBtn) prevBtn.onclick = null;
-        if (nextBtn) nextBtn.onclick = null;
-
         if (!this.initialized) {
             this.setupEventListeners();
             this.initialized = true;
@@ -227,3 +221,4 @@ const Tracker = {
         return div.innerHTML;
     }
 };
+
