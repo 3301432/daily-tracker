@@ -50,21 +50,7 @@ const Tracker = {
      * Set up event listeners
      */
     setupEventListeners() {
-        // Navigation buttons - use onclick to ensure only one handler
-        const prevBtn = document.getElementById('prevDay');
-        const nextBtn = document.getElementById('nextDay');
-
-        prevBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.navigateDay(-1);
-        };
-
-        nextBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.navigateDay(1);
-        };
+        // Navigation is now handled by inline onclick in HTML to prevent double-firing
 
         // Add column button
         document.getElementById('addColumnBtn').onclick = () => this.openAddColumnModal();
@@ -263,3 +249,4 @@ const Tracker = {
         return div.innerHTML;
     }
 };
+
