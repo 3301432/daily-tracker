@@ -33,13 +33,13 @@
             <!-- Today View -->
             <section class="view active" id="todayView">
                 <div class="view-header">
-                    <button class="nav-btn" id="prevDay">
+                    <button class="nav-btn" id="prevDay" onclick="Tracker.navigateDay(-1); return false;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M15 18l-6-6 6-6" />
                         </svg>
                     </button>
                     <h2 class="current-date" id="currentDate"></h2>
-                    <button class="nav-btn" id="nextDay">
+                    <button class="nav-btn" id="nextDay" onclick="Tracker.navigateDay(1); return false;">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M9 18l6-6-6-6" />
                         </svg>
@@ -169,5 +169,6 @@
     <script src="./js/charts.js"></script>
     <script src="./js/app.js"></script>
 </body>
+
 
 </html>
