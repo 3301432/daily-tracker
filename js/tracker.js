@@ -1,18 +1,26 @@
 /**
  * Tracker Module - Handles the Today view
+ * FIXED: Navigation now uses inline onclick in HTML + debounce protection
  */
 
 const Tracker = {
     currentDate: null,
     saveTimeouts: {},
     initialized: false,
+    isNavigating: false,
 
     /**
      * Initialize the tracker
      */
     init() {
         this.currentDate = this.getTodayDate();
-        // Only set up event listeners once
+
+        // Ensure nav buttons have NO JS onclick handlers (HTML inline handles it)
+        const prevBtn = document.getElementById('prevDay');
+        const nextBtn = document.getElementById('nextDay');
+        if (prevBtn) prevBtn.onclick = null;
+        if (nextBtn) nextBtn.onclick = null;
+
         if (!this.initialized) {
             this.setupEventListeners();
             this.initialized = true;
@@ -47,11 +55,9 @@ const Tracker = {
     },
 
     /**
-     * Set up event listeners
+     * Set up event listeners (NOT for navigation - that's inline in HTML)
      */
     setupEventListeners() {
-        // Navigation is now handled by inline onclick in HTML to prevent double-firing
-
         // Add column button
         document.getElementById('addColumnBtn').onclick = () => this.openAddColumnModal();
 
@@ -71,40 +77,39 @@ const Tracker = {
     },
 
     /**
-     * Navigate to previous or next day (debounced)
+     * Navigate to previous or next day
+     * Has debounce protection to prevent double-firing
      */
-    isNavigating: false,
-
     navigateDay(direction) {
-        // Prevent double navigation
-        if (this.isNavigating) return;
+        // Prevent rapid double-navigation
+        if (this.isNavigating) {
+            return;
+        }
         this.isNavigating = true;
 
+        // Calculate new date
         const date = new Date(this.currentDate + 'T00:00:00');
         date.setDate(date.getDate() + direction);
         this.currentDate = date.toISOString().split('T')[0];
+
+        // Update the view
         this.render();
 
-        // Reset after short delay
+        // Allow navigation again after delay
         setTimeout(() => {
             this.isNavigating = false;
-        }, 300);
+        }, 400);
     },
 
     /**
      * Render the tracker view
      */
     render() {
-        // Update date display
         document.getElementById('currentDate').textContent = this.formatDate(this.currentDate);
-
-        // Update header date
         document.getElementById('headerDate').textContent = this.formatHeaderDate(this.currentDate);
 
-        // Get columns and current entry
         const columns = Storage.getColumns();
         const entry = Storage.getEntry(this.currentDate);
-
         const container = document.getElementById('trackerTable');
 
         if (columns.length === 0) {
@@ -138,13 +143,11 @@ const Tracker = {
             </div>
         `).join('');
 
-        // Add event listeners to inputs
         container.querySelectorAll('.tracker-input').forEach(input => {
             input.addEventListener('input', (e) => this.handleInput(e));
             input.addEventListener('focus', (e) => e.target.select());
         });
 
-        // Add event listeners to delete buttons
         container.querySelectorAll('.delete-col-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.deleteColumn(e));
         });
@@ -158,33 +161,23 @@ const Tracker = {
         const columnId = input.dataset.columnId;
         const value = input.value;
 
-        // Clear existing timeout for this column
         if (this.saveTimeouts[columnId]) {
             clearTimeout(this.saveTimeouts[columnId]);
         }
 
-        // Add saving indicator
         input.classList.add('saving');
 
-        // Debounce save
         this.saveTimeouts[columnId] = setTimeout(() => {
             Storage.saveValue(this.currentDate, columnId, value);
             input.classList.remove('saving');
             input.classList.add('saved');
-
-            // Show toast
             App.showToast('Saved!');
-
-            // Remove saved class after animation
             setTimeout(() => {
                 input.classList.remove('saved');
             }, 1000);
         }, 500);
     },
 
-    /**
-     * Open add column modal
-     */
     openAddColumnModal() {
         document.getElementById('columnName').value = '';
         document.getElementById('columnType').value = 'text';
@@ -194,16 +187,10 @@ const Tracker = {
         }, 100);
     },
 
-    /**
-     * Close add column modal
-     */
     closeAddColumnModal() {
         document.getElementById('addColumnModal').classList.remove('active');
     },
 
-    /**
-     * Save new column
-     */
     saveNewColumn() {
         const name = document.getElementById('columnName').value.trim();
         const type = document.getElementById('columnType').value;
@@ -216,16 +203,10 @@ const Tracker = {
         Storage.addColumn(name, type);
         this.closeAddColumnModal();
         this.render();
-
-        // Also update charts column select
         Charts.updateColumnSelect();
-
         App.showToast('Column added!');
     },
 
-    /**
-     * Delete a column
-     */
     deleteColumn(e) {
         const columnId = e.currentTarget.dataset.columnId;
         const columns = Storage.getColumns();
@@ -239,9 +220,6 @@ const Tracker = {
         }
     },
 
-    /**
-     * Escape HTML to prevent XSS
-     */
     escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -249,4 +227,3 @@ const Tracker = {
         return div.innerHTML;
     }
 };
-
