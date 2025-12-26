@@ -1,224 +1,167 @@
 /**
- * Tracker Module - Handles the Today view
- * FIXED: Navigation now uses inline onclick in HTML + debounce protection
+ * Tracker Module - Simple navigation with debounce
  */
-
-const Tracker = {
+var Tracker = {
     currentDate: null,
     saveTimeouts: {},
-    initialized: false,
-    isNavigating: false,
+    navLocked: false,
 
-    /**
-     * Initialize the tracker
-     */
-    init() {
+    init: function() {
         this.currentDate = this.getTodayDate();
-
-        if (!this.initialized) {
-            this.setupEventListeners();
-            this.initialized = true;
-        }
+        this.bindNavigation();
+        this.bindModal();
         this.render();
     },
 
-    /**
-     * Get today's date in YYYY-MM-DD format
-     */
-    getTodayDate() {
-        const today = new Date();
+    getTodayDate: function() {
+        var today = new Date();
         return today.toISOString().split('T')[0];
     },
 
-    /**
-     * Format date for display
-     */
-    formatDate(dateString) {
-        const date = new Date(dateString + 'T00:00:00');
-        const options = { weekday: 'short', month: 'short', day: 'numeric' };
-        return date.toLocaleDateString('en-US', options);
+    formatDate: function(dateString) {
+        var date = new Date(dateString + 'T12:00:00');
+        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     },
 
-    /**
-     * Format date for header
-     */
-    formatHeaderDate(dateString) {
-        const date = new Date(dateString + 'T00:00:00');
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        return date.toLocaleDateString('en-US', options);
+    formatHeaderDate: function(dateString) {
+        var date = new Date(dateString + 'T12:00:00');
+        return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     },
 
-    /**
-     * Set up event listeners (NOT for navigation - that's inline in HTML)
-     */
-    setupEventListeners() {
-        // Add column button
-        document.getElementById('addColumnBtn').onclick = () => this.openAddColumnModal();
-
-        // Modal buttons
-        document.getElementById('saveColumn').onclick = () => this.saveNewColumn();
-        document.getElementById('cancelColumn').onclick = () => this.closeAddColumnModal();
-
-        // Close modal on backdrop click
-        document.querySelector('#addColumnModal .modal-backdrop').onclick = () => this.closeAddColumnModal();
-
-        // Enter key in column name input
-        document.getElementById('columnName').onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                this.saveNewColumn();
-            }
-        };
+    bindNavigation: function() {
+        var self = this;
+        var prevBtn = document.getElementById('prevDay');
+        var nextBtn = document.getElementById('nextDay');
+        
+        var newPrev = prevBtn.cloneNode(true);
+        var newNext = nextBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+        nextBtn.parentNode.replaceChild(newNext, nextBtn);
+        
+        newPrev.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            self.goBack();
+        }, false);
+        
+        newNext.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            self.goForward();
+        }, false);
     },
 
-    /**
-     * Navigate to previous or next day
-     * Has debounce protection to prevent double-firing
-     */
-    navigateDay(direction) {
-        // Prevent rapid double-navigation
-        if (this.isNavigating) {
-            return;
-        }
-        this.isNavigating = true;
-
-        // Calculate new date
-        const date = new Date(this.currentDate + 'T00:00:00');
-        date.setDate(date.getDate() + direction);
+    goBack: function() {
+        if (this.navLocked) return;
+        this.navLocked = true;
+        var date = new Date(this.currentDate + 'T12:00:00');
+        date.setDate(date.getDate() - 1);
         this.currentDate = date.toISOString().split('T')[0];
-
-        // Update the view
         this.render();
-
-        // Allow navigation again after delay
-        setTimeout(() => {
-            this.isNavigating = false;
-        }, 400);
+        var self = this;
+        setTimeout(function() { self.navLocked = false; }, 500);
     },
 
-    /**
-     * Render the tracker view
-     */
-    render() {
+    goForward: function() {
+        if (this.navLocked) return;
+        this.navLocked = true;
+        var date = new Date(this.currentDate + 'T12:00:00');
+        date.setDate(date.getDate() + 1);
+        this.currentDate = date.toISOString().split('T')[0];
+        this.render();
+        var self = this;
+        setTimeout(function() { self.navLocked = false; }, 500);
+    },
+
+    bindModal: function() {
+        var self = this;
+        document.getElementById('addColumnBtn').addEventListener('click', function() { self.openAddColumnModal(); });
+        document.getElementById('saveColumn').addEventListener('click', function() { self.saveNewColumn(); });
+        document.getElementById('cancelColumn').addEventListener('click', function() { self.closeAddColumnModal(); });
+        document.querySelector('#addColumnModal .modal-backdrop').addEventListener('click', function() { self.closeAddColumnModal(); });
+        document.getElementById('columnName').addEventListener('keypress', function(e) { if (e.key === 'Enter') self.saveNewColumn(); });
+    },
+
+    render: function() {
         document.getElementById('currentDate').textContent = this.formatDate(this.currentDate);
         document.getElementById('headerDate').textContent = this.formatHeaderDate(this.currentDate);
-
-        const columns = Storage.getColumns();
-        const entry = Storage.getEntry(this.currentDate);
-        const container = document.getElementById('trackerTable');
+        var columns = Storage.getColumns();
+        var entry = Storage.getEntry(this.currentDate);
+        var container = document.getElementById('trackerTable');
+        var self = this;
 
         if (columns.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M12 5v14M5 12h14"/>
-                    </svg>
-                    <p>No columns yet. Tap "Add Column" to start tracking!</p>
-                </div>
-            `;
+            container.innerHTML = '<div class="empty-state"><p>No columns yet. Tap "Add Column" to start!</p></div>';
             return;
         }
 
-        container.innerHTML = columns.map(column => `
-            <div class="tracker-row" data-column-id="${column.id}">
-                <label class="tracker-label">${this.escapeHtml(column.name)}</label>
-                <input 
-                    type="${column.type === 'number' ? 'number' : 'text'}"
-                    class="tracker-input"
-                    data-column-id="${column.id}"
-                    value="${this.escapeHtml(entry[column.id] || '')}"
-                    placeholder="${column.type === 'number' ? '0' : 'Enter...'}"
-                    inputmode="${column.type === 'number' ? 'decimal' : 'text'}"
-                >
-                <button class="delete-col-btn" data-column-id="${column.id}" title="Delete column">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-        `).join('');
+        var html = '';
+        for (var i = 0; i < columns.length; i++) {
+            var col = columns[i];
+            var val = entry[col.id] || '';
+            html += '<div class="tracker-row"><label class="tracker-label">' + this.escapeHtml(col.name) + '</label>';
+            html += '<input type="' + (col.type === 'number' ? 'number' : 'text') + '" class="tracker-input" data-column-id="' + col.id + '" value="' + this.escapeHtml(val) + '" placeholder="' + (col.type === 'number' ? '0' : 'Enter...') + '">';
+            html += '<button class="delete-col-btn" data-column-id="' + col.id + '" type="button">✕</button></div>';
+        }
+        container.innerHTML = html;
 
-        container.querySelectorAll('.tracker-input').forEach(input => {
-            input.addEventListener('input', (e) => this.handleInput(e));
-            input.addEventListener('focus', (e) => e.target.select());
-        });
-
-        container.querySelectorAll('.delete-col-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.deleteColumn(e));
-        });
+        var inputs = container.querySelectorAll('.tracker-input');
+        for (var j = 0; j < inputs.length; j++) { inputs[j].addEventListener('input', function(e) { self.handleInput(e); }); }
+        var delBtns = container.querySelectorAll('.delete-col-btn');
+        for (var k = 0; k < delBtns.length; k++) { delBtns[k].addEventListener('click', function(e) { self.deleteColumn(e); }); }
     },
 
-    /**
-     * Handle input changes with debounce
-     */
-    handleInput(e) {
-        const input = e.target;
-        const columnId = input.dataset.columnId;
-        const value = input.value;
-
-        if (this.saveTimeouts[columnId]) {
-            clearTimeout(this.saveTimeouts[columnId]);
-        }
-
-        input.classList.add('saving');
-
-        this.saveTimeouts[columnId] = setTimeout(() => {
-            Storage.saveValue(this.currentDate, columnId, value);
-            input.classList.remove('saving');
-            input.classList.add('saved');
+    handleInput: function(e) {
+        var input = e.target;
+        var columnId = input.getAttribute('data-column-id');
+        var value = input.value;
+        var self = this;
+        if (this.saveTimeouts[columnId]) clearTimeout(this.saveTimeouts[columnId]);
+        this.saveTimeouts[columnId] = setTimeout(function() {
+            Storage.saveValue(self.currentDate, columnId, value);
             App.showToast('Saved!');
-            setTimeout(() => {
-                input.classList.remove('saved');
-            }, 1000);
         }, 500);
     },
 
-    openAddColumnModal() {
+    openAddColumnModal: function() {
         document.getElementById('columnName').value = '';
         document.getElementById('columnType').value = 'text';
         document.getElementById('addColumnModal').classList.add('active');
-        setTimeout(() => {
-            document.getElementById('columnName').focus();
-        }, 100);
+        setTimeout(function() { document.getElementById('columnName').focus(); }, 100);
     },
 
-    closeAddColumnModal() {
+    closeAddColumnModal: function() {
         document.getElementById('addColumnModal').classList.remove('active');
     },
 
-    saveNewColumn() {
-        const name = document.getElementById('columnName').value.trim();
-        const type = document.getElementById('columnType').value;
-
-        if (!name) {
-            document.getElementById('columnName').focus();
-            return;
-        }
-
+    saveNewColumn: function() {
+        var name = document.getElementById('columnName').value.trim();
+        var type = document.getElementById('columnType').value;
+        if (!name) { document.getElementById('columnName').focus(); return; }
         Storage.addColumn(name, type);
         this.closeAddColumnModal();
         this.render();
-        Charts.updateColumnSelect();
+        if (typeof Charts !== 'undefined') Charts.updateColumnSelect();
         App.showToast('Column added!');
     },
 
-    deleteColumn(e) {
-        const columnId = e.currentTarget.dataset.columnId;
-        const columns = Storage.getColumns();
-        const column = columns.find(c => c.id === columnId);
-
-        if (confirm(`Delete "${column.name}" column? This will remove all data for this column.`)) {
+    deleteColumn: function(e) {
+        var columnId = e.target.getAttribute('data-column-id');
+        var columns = Storage.getColumns();
+        var column = null;
+        for (var i = 0; i < columns.length; i++) { if (columns[i].id === columnId) { column = columns[i]; break; } }
+        if (column && confirm('Delete "' + column.name + '"?')) {
             Storage.deleteColumn(columnId);
             this.render();
-            Charts.updateColumnSelect();
-            App.showToast('Column deleted');
+            if (typeof Charts !== 'undefined') Charts.updateColumnSelect();
+            App.showToast('Deleted');
         }
     },
 
-    escapeHtml(text) {
+    escapeHtml: function(text) {
         if (!text) return '';
-        const div = document.createElement('div');
+        var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 };
-
